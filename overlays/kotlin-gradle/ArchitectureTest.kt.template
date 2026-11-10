@@ -1,0 +1,94 @@
+// Copy into src/test/kotlin/<root>/ArchitectureTest.kt and set ROOT_PACKAGE / SOURCE_ROOT.
+// Never weaken this test to make a change fit. Change the design.
+package __ROOT_PACKAGE__
+
+import java.io.File
+import kotlin.test.Test
+import kotlin.test.fail
+
+class ArchitectureTest {
+    private val sourceRoot = File("src/main/kotlin/" + "__ROOT_PACKAGE__".replace('.', '/'))
+
+    private data class SourceFile(val file: File, val context: String, val role: Role, val imports: List<String>)
+
+    private sealed interface Role {
+        data object Domain : Role
+        data object Composition : Role
+        data class Adapter(val kind: String) : Role
+    }
+
+    private val adapterDirs = setOf("http", "postgres")
+    private val bannedInDomain = listOf(
+        "org.springframework", "io.ktor", "com.fasterxml.jackson", "kotlinx.serialization",
+        "java.sql", "javax.sql", "org.jooq", "org.postgresql", "io.mockk", "org.mockito",
+    )
+    private val bannedFolders = setOf("controllers", "repositories", "services", "utils", "util", "helpers", "common", "misc")
+    private val bannedFileName = Regex("""^(?:Utils?|Helpers?|Common|Misc|Base|Manager|Handler|Data|Info|\w+Impl|\w+Manager|\w+Helper)\.kt$""")
+
+    private fun sources(): List<SourceFile> = sourceRoot.walkTopDown().filter { it.extension == "kt" }.map { file ->
+        val rel = file.relativeTo(sourceRoot).invariantSeparatorsPath.split('/')
+        val context = rel.first()
+        val adapter = rel.dropLast(1).firstOrNull { it in adapterDirs }
+        val role = when {
+            adapter != null -> Role.Adapter(adapter)
+            file.name.endsWith("Vertical.kt") -> Role.Composition
+            else -> Role.Domain
+        }
+        val imports = file.readLines().filter { it.startsWith("import ") }.map { it.removePrefix("import ").trim() }
+        SourceFile(file, context, role, imports)
+    }.toList()
+
+    private fun List<String>.assertEmpty(rule: String, remediation: String) {
+        if (isNotEmpty()) fail("ARCHITECTURE VIOLATION [$rule]\n" + joinToString("\n") { "  - $it" } + "\nREMEDIATION: $remediation")
+    }
+
+    @Test
+    fun `domain files import only the standard library and shared model`() {
+        sources().filter { it.role == Role.Domain }.flatMap { src ->
+            src.imports.filter { imp -> bannedInDomain.any { imp.startsWith(it) } }.map { "${src.file.name} imports $it" }
+        }.assertEmpty(
+            "hexagonal-purity",
+            "Move framework/driver code to an http/ or postgres/ adapter and translate to domain types at the edge (Parse, Don't Validate).",
+        )
+    }
+
+    @Test
+    fun `domain never imports its adapters`() {
+        sources().filter { it.role == Role.Domain }.flatMap { src ->
+            src.imports.filter { imp -> adapterDirs.any { ".${src.context}.$it." in ".$imp" } }.map { "${src.file.name} imports $it" }
+        }.assertEmpty(
+            "hexagonal-direction",
+            "Declare an outbound port in <Context>Ports named for the domain need; implement it in the adapter; bind it in <Context>Vertical.",
+        )
+    }
+
+    @Test
+    fun `contexts touch each other only through published Service APIs`() {
+        val all = sources()
+        val contexts = all.map { it.context }.toSet()
+        all.flatMap { src ->
+            src.imports.mapNotNull { imp ->
+                val other = contexts.firstOrNull { it != src.context && imp.startsWith("__ROOT_PACKAGE__.$it.") } ?: return@mapNotNull null
+                val target = imp.substringAfterLast('.')
+                if (target.endsWith("Service") || src.role == Role.Composition) null else "${src.file.name} (${src.context}) reaches into $other: $imp"
+            }
+        }.assertEmpty(
+            "context-isolation",
+            "Depend on the other context's <Context>Service, or declare a port in this context's own vocabulary and bind it in the composition root.",
+        )
+    }
+
+    @Test
+    fun `no horizontal layers or generic buckets`() {
+        sources().flatMap { src ->
+            val rel = src.file.relativeTo(sourceRoot).invariantSeparatorsPath
+            listOfNotNull(
+                rel.split('/').dropLast(1).firstOrNull { it in bannedFolders }?.let { "$rel uses banned folder '$it/'" },
+                rel.takeIf { bannedFileName.matches(src.file.name) }?.let { "$it uses a generic bucket name" },
+            )
+        }.assertEmpty(
+            "vertical-slices",
+            "Organize by bounded context (<context>/<Aggregate>, <Aggregate>Rules, <Context>Ports, <Context>Service, <Context>Vertical, http/, postgres/) and name files for the domain concept.",
+        )
+    }
+}

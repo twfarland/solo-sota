@@ -1,0 +1,29 @@
+# claude-progress.txt — shift-to-shift handoff ledger (append-only; newest entry last)
+# Entry format:
+#   ## <YYYY-MM-DD> <FEATURE-IDs> — <who/what shift>
+#   Changed: ...
+#   Gates: ./init.sh <result>; node --test <n pass>; check.sh <result>; prove.sh <result or "not run">
+#   Next: ...
+
+## 2026-11-10 BOOT-001..BOOT-004 — Stage 1 bootstrap (external agent: Claude Code)
+Changed: Scaffolded the full repo layout from bootstrap.md. Pure rules in src/rules/ (guardrail-rules,
+  strike-rules, harness-mode-rules) with node --test suites; thin Pi adapters in extensions/ tested against a
+  hand-written RecordingPi fake; ts-node import-boundary linter (lints this repo too); Kotlin/TS/Rust overlays;
+  Quint model spec/harness_lifecycle.qnt with check.sh (all safety invariants + teeth probes) and prove.sh.
+Deviations from bootstrap.md (all deliberate):
+  - Content guard detects mocking-library *usage* (imports/calls), not bare words, so prose and the harness's
+    own tests do not trip it; test fixtures are assembled from fragments.
+  - check.sh simulates all non-teeth invariants (conjoined) and runs teeth probes; teeth probes in both scripts
+    require a genuine "[violation]" so a typo'd invariant name cannot pass as "bit".
+  - deterministicGateFail's local vals moved before `all { }` (valid Quint scoping).
+  - verify_and_reload_harness queues /reload-harness (ctx.reload()) after a green ./init.sh, since tools
+    receive ExtensionContext without reload().
+  - Quint, TypeScript, Pi types, and typebox are pinned devDependencies; gate scripts prefer node_modules/.bin.
+  - Pi 1.0.0 has no `--no-mcp` flag (BOOT-004 step text); the working equivalent is `--no-extensions`.
+    feature_list.json is immutable, so the step text is left as-is.
+Gates: ./init.sh green (tsc clean; node --test 58/58; lint-architecture clean; check.sh: typecheck, 2/2 Quint
+  tests, 200-sample simulation of both invariants, teeth witness bit). prove.sh not run (needs Apalache download).
+  Real Pi 1.0.0 in RPC mode (`pi --mode rpc --offline --no-extensions --no-session -e ... x3`): all three
+  extensions load, status "🛡 Solo-SOTA · guards on · strikes 0/2", 9 commands registered, /quint-check passed.
+Next: Stage 2 is self-hosted. "passes" are still false on purpose: only a green /qa may flip them
+  (inv_no_unverified_pass). In Pi: /qa BOOT-001 … BOOT-004, then /shift BOOT-005 (bin/apply-harness.mjs).

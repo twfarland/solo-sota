@@ -1,0 +1,75 @@
+[
+  {
+    "id": "BOOT-001",
+    "category": "stage1-seed",
+    "description": "Scaffold package.json, AGENTS.md (~100 lines), ARCHITECTURE.md, core/AGENTS.base.md, and overlays (kotlin-gradle, ts-node, rust-cargo)",
+    "steps": [
+      "Verify core/AGENTS.base.md is under 115 lines and captures all 8 guardrail sections (Hexagonal vertical slices, pure Rules, Parse-don't-validate, InMemory fakes + Contracts, TestClock, Quint, Anti-entropy)",
+      "Verify overlays/kotlin-gradle/init-isolated-tests.gradle.kts redirects test output directories per agentId",
+      "Verify overlays/ts-node/lint-architecture.mjs emits remediation instructions when a downstream layer is imported by an upstream layer"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-002",
+    "category": "stage1-seed",
+    "description": "Implement pure guardrail rules (src/rules/guardrail-rules.ts) and deterministic unit tests (src/rules/guardrail-rules.test.ts)",
+    "steps": [
+      "Run 'node --test src/rules/guardrail-rules.test.ts' and verify 100% pass rate with zero mocking libraries",
+      "Verify banned filenames (Utils, Helper, Common, Manager, *Impl) and banned horizontal folders (controllers/, repositories/) are rejected with remediation messages",
+      "Verify mocking library imports (mockk, mockito, jest.mock, vi.mock) are rejected with instructions to use InMemory* fakes and *Contract tests",
+      "Verify feature_list.json edit guard blocks any mutation outside the 'passes' boolean field"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-003",
+    "category": "stage1-seed",
+    "description": "Implement Quint formal verification gate (spec/harness_lifecycle.qnt, spec/scripts/check.sh, spec/scripts/prove.sh)",
+    "steps": [
+      "Run 'bash ./spec/scripts/check.sh' and verify harness_lifecycle.qnt passes quint typecheck, quint test (happyPathTest, twoStrikeHaltTest), and 200-sample quint run simulation",
+      "Verify inv_no_unverified_pass and inv_strike_cap_enforced hold and inv_teeth_can_reach_pass witness is reachable"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-004",
+    "category": "stage1-seed",
+    "description": "Wire Pi extensions (solo-sota-harness.ts, plan-quint-qa-modes.ts, self-ratchet.ts), skills, and init.sh bootstrap script",
+    "steps": [
+      "Run 'bash ./init.sh' and confirm TypeScript typechecking, node --test suite, architecture linter, and Quint check.sh all exit 0",
+      "Load extensions in Pi via 'pi --no-mcp -e ./extensions/solo-sota-harness.ts -e ./extensions/plan-quint-qa-modes.ts -e ./extensions/self-ratchet.ts' and verify status bar shows Solo-SOTA status"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-005",
+    "category": "stage2-self-hosted",
+    "description": "Self-Hosted Shift 1: Use /shift inside Pi to build the project bootstrapper CLI ('bin/apply-harness.mjs') that installs core + selected stack overlay into any target repo",
+    "steps": [
+      "Run 'node ./bin/apply-harness.mjs --stack kotlin-gradle --target /tmp/test-kt-repo' in a clean temp directory",
+      "Verify AGENTS.md, init.sh, spec/scripts/{check,prove}.sh, and Gradle parallel test isolation script are installed cleanly"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-006",
+    "category": "stage2-self-hosted",
+    "description": "Self-Hosted Shift 2: Use /shift and /quint-sync to add bounded-context symmetry checker ('scripts/check-context-symmetry.mjs')",
+    "steps": [
+      "Verify the symmetry checker inspects vertical bounded context folders and flags missing *Contract tests when an outbound *Ports interface + adapter exist",
+      "Verify error messages instruct the agent on the exact missing sibling file shape"
+    ],
+    "passes": false
+  },
+  {
+    "id": "BOOT-007",
+    "category": "stage2-self-hosted",
+    "description": "Self-Hosted Shift 3: Exercise /ratchet to add an automated anti-entropy diff check blocking leftover TODOs without an owner and reason",
+    "steps": [
+      "Run '/ratchet Block new TODO comments unless formatted as TODO(owner): reason' inside Pi",
+      "Verify Pi adds the pure rule to src/rules/guardrail-rules.ts, adds a unit test in guardrail-rules.test.ts, passes './init.sh', and updates feature_list.json via /qa"
+    ],
+    "passes": false
+  }
+]
