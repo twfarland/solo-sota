@@ -3,14 +3,24 @@
 // verify_and_reload_harness runs ./init.sh and, only when green, queues /reload-harness (ctx.reload()).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { verificationCanReload, type GateId } from "../src/rules/gate-evidence-rules.ts";
+import { currentGateState, reportGate, runGate } from "./gate-runtime.ts";
 
 const OUTPUT_TAIL = 2500;
 
 export default function (pi: ExtensionAPI) {
+  let reload: { readonly id: GateId; readonly signal: AbortSignal | undefined } | undefined;
   // Tools receive ExtensionContext (no reload), so the tool queues this command after verification.
   pi.registerCommand("reload-harness", {
     description: "Hot-reload harness extensions, skills, and prompts (ctx.reload())",
     handler: async (_args, ctx) => {
+      if (reload === undefined || !verificationCanReload(currentGateState(pi), reload.id, reload.signal?.aborted === true)) {
+        reload = undefined;
+        ctx.ui.notify("Reload blocked: run fresh self-verification first; stale, cancelled or halted verification cannot reload.", "warning");
+        return;
+      }
+      reload = undefined;
+      reportGate(pi, { kind: "invalidated" });
       await ctx.reload();
     },
   });
@@ -28,8 +38,10 @@ export default function (pi: ExtensionAPI) {
     ],
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       onUpdate?.({ content: [{ type: "text", text: "Running harness self-test suite and Quint shallow gate..." }], details: undefined });
-      const check = await pi.exec("bash", ["./init.sh"], { cwd: ctx.cwd, signal });
-      if (check.code !== 0) {
+      reload = undefined;
+      const verificationSignal = signal ?? ctx.signal;
+      const check = await runGate(pi, ctx, ["./init.sh"], { kind: "check" }, verificationSignal);
+      if (!check.verified || !verificationCanReload(currentGateState(pi), check.id, verificationSignal?.aborted === true)) {
         return {
           content: [
             {
@@ -37,9 +49,11 @@ export default function (pi: ExtensionAPI) {
               text: `❌ Self-verification failed. Harness was NOT reloaded. Fix errors first:\n${`${check.stdout}\n${check.stderr}`.trim().slice(-OUTPUT_TAIL)}`,
             },
           ],
+          isError: true,
           details: { verified: false },
         };
       }
+      reload = { id: check.id, signal: verificationSignal };
       pi.sendUserMessage("/reload-harness", { deliverAs: "followUp" });
       return {
         content: [{ type: "text", text: `✅ Harness self-tests and Quint model passed for: ${params.summaryOfChange}. Queued /reload-harness.` }],

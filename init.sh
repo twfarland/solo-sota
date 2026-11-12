@@ -33,8 +33,10 @@ echo "✅ typecheck clean"
 stage "3/5 Unit tests (node --test, zero mocks)"
 node --test
 
-stage "4/5 Architecture linter"
-node ./overlays/ts-node/lint-architecture.mjs src extensions overlays
+stage "4/5 Architecture, context symmetry and TODO diff"
+node ./overlays/ts-node/lint-architecture.mjs src extensions overlays bin scripts
+node ./scripts/check-context-symmetry.mjs .
+node ./scripts/check-todo-diff.mjs .
 
 stage "5/5 Quint shallow gate"
 bash ./spec/scripts/check.sh

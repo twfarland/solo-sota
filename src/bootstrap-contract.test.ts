@@ -1,4 +1,4 @@
-// Mechanical checks for the Stage 1 layout contract (feature_list.json BOOT-001..004 steps).
+// Current TypeScript/Node layout. Completed feature_list entries retain historical acceptance.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
@@ -11,6 +11,7 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
 const lineCount = (text: string) => text.trimEnd().split("\n").length;
 
 const REQUIRED_FILES = [
+  "LICENSE",
   "package.json",
   "init.sh",
   "AGENTS.md",
@@ -19,15 +20,13 @@ const REQUIRED_FILES = [
   "claude-progress.txt",
   "core/AGENTS.base.md",
   "core/ARCHITECTURE.template.md",
-  "overlays/kotlin-gradle/OVERLAY.md",
-  "overlays/kotlin-gradle/init-isolated-tests.gradle.kts",
-  "overlays/kotlin-gradle/ArchitectureTest.kt.template",
   "overlays/ts-node/OVERLAY.md",
   "overlays/ts-node/lint-architecture.mjs",
-  "overlays/rust-cargo/OVERLAY.md",
   "spec/README.md",
   "spec/harness_lifecycle.md",
   "spec/harness_lifecycle.qnt",
+  "spec/gate_evidence.md",
+  "spec/gate_evidence.qnt",
   "spec/scripts/check.sh",
   "spec/scripts/prove.sh",
   "src/rules/guardrail-rules.ts",
@@ -69,13 +68,11 @@ test("root AGENTS.md is a ~100-line map", () => {
   assert.ok(lines >= 60 && lines <= 120, `AGENTS.md has ${lines} lines`);
 });
 
-test("gradle init script redirects every test output directory per agentId", () => {
-  const script = read("overlays/kotlin-gradle/init-isolated-tests.gradle.kts");
-  assert.match(script, /projectProperties\["agentId"\]/);
-  assert.match(script, /PI_AGENT_ID/);
-  for (const output of [/binaryResultsDirectory.*test-results-\$agentId/, /reports\.html.*reports\/tests-\$agentId/, /reports\.junitXml.*test-results-\$agentId/]) {
-    assert.match(script, output);
-  }
+test("only the TypeScript/Node overlay is distributed, retaining agent-isolated output guidance", () => {
+  assert.deepEqual(fs.readdirSync(path.join(ROOT, "overlays")).sort(), ["ts-node"]);
+  const overlay = read("overlays/ts-node/OVERLAY.md");
+  assert.match(overlay, /outputFile=.*test-\$AGENT_ID/);
+  assert.match(overlay, /separate worktrees/);
 });
 
 test("package.json is a Pi package whose manifest points at real files", () => {
@@ -90,9 +87,9 @@ test("feature_list.json parses and holds the seven bootstrap features", () => {
   assert.deepEqual(features.map((f) => f.id), ["BOOT-001", "BOOT-002", "BOOT-003", "BOOT-004", "BOOT-005", "BOOT-006", "BOOT-007"]);
 });
 
-test("the Quint model declares both safety invariants, a teeth witness, and both scenario tests", () => {
+test("the Quint model declares lifecycle and feature-scoping invariants, witnesses, and scenarios", () => {
   const qnt = read("spec/harness_lifecycle.qnt");
-  for (const name of ["inv_no_unverified_pass", "inv_strike_cap_enforced", "inv_teeth_can_reach_pass", "happyPathTest", "twoStrikeHaltTest"]) {
+  for (const name of ["inv_no_unverified_pass", "inv_qa_feature_scoped", "inv_strike_cap_enforced", "inv_teeth_can_reach_pass", "happyPathTest", "twoStrikeHaltTest", "selectedFeatureTest", "staleQaGateTest", "reloadPreservesHaltTest"]) {
     assert.match(qnt, new RegExp(`\\b(?:val|run) ${name}\\b`));
   }
 });

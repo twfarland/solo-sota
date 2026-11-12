@@ -16,6 +16,9 @@ import {
   type ModeToolCall,
 } from "../src/rules/harness-mode-rules.ts";
 
+import { qaEvidenceMismatch, qaIsAuthorized } from "../src/rules/gate-evidence-rules.ts";
+import { currentGateState, GATE_EVENT, reportGate, runGate } from "./gate-runtime.ts";
+
 const STATUS_KEY = "mode";
 const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls"];
 const PLAN_TOOLS = [...READ_ONLY_TOOLS, "write", "edit"];
@@ -48,17 +51,32 @@ function toModeToolCall(toolName: string, input: Record<string, unknown>, cwd: s
 
 export default function (pi: ExtensionAPI) {
   let mode: HarnessMode = { kind: "normal" };
+  let currentCtx: ExtensionContext | undefined;
+  const refreshQa = (ctx: ExtensionContext) => {
+    if (mode.kind !== "qa") return;
+    const state = currentGateState(pi);
+    const text = readIfExists(path.join(ctx.cwd, "feature_list.json")) ?? "";
+    const checksGreen = qaIsAuthorized(state, mode.featureId, text);
+    if (qaEvidenceMismatch(state, mode.featureId, text)) reportGate(pi, { kind: "invalidated" });
+    mode = { ...mode, checksGreen };
+    ctx.ui.setStatus(STATUS_KEY, formatModeStatus(mode));
+  };
+  pi.events.on(GATE_EVENT, () => { if (currentCtx) refreshQa(currentCtx); });
 
   const enter = (next: HarnessMode, ctx: ExtensionContext, tools: string[]) => {
+    if (next.kind !== "qa") reportGate(pi, { kind: "invalidated" });
+    currentCtx = ctx;
     mode = next;
     pi.setActiveTools(tools);
     ctx.ui.setStatus(STATUS_KEY, formatModeStatus(mode));
   };
 
   pi.on("session_start", async (_event, ctx) => {
+    currentCtx = ctx;
     mode = { kind: "normal" };
     ctx.ui.setStatus(STATUS_KEY, formatModeStatus(mode));
   });
+  pi.on("session_shutdown", async () => { currentCtx = undefined; mode = { kind: "normal" }; });
 
   pi.on("tool_call", async (event, ctx) => {
     const call = toModeToolCall(event.toolName, event.input, ctx.cwd);
@@ -77,6 +95,7 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
+    refreshQa(ctx); // Re-read authoritative evidence after any awaited confirmation.
     const decision = evaluateModeToolCall(mode, call);
     return decision.allowed ? undefined : { block: true, reason: decision.reason };
   });
@@ -85,13 +104,13 @@ export default function (pi: ExtensionAPI) {
     description: "Run ./init.sh (typecheck, node --test, architecture lint, Quint shallow gate) and hand failures to the agent",
     handler: async (_args, ctx) => {
       ctx.ui.notify("Running bash ./init.sh ...", "info");
-      const res = await pi.exec("bash", ["./init.sh"], { cwd: ctx.cwd });
-      if (res.code === 0) {
+      const res = await runGate(pi, ctx, ["./init.sh"]);
+      if (res.verified) {
         ctx.ui.notify("✅ Harness baseline is green.", "info");
         return;
       }
       pi.sendUserMessage(
-        `[HARNESS BASELINE FAILURE]: 'bash ./init.sh' exited ${res.code}:\n\`\`\`\n${tail(res)}\n\`\`\`\n` +
+        `[HARNESS BASELINE FAILURE]: 'bash ./init.sh' did not produce current verification (exit ${res.code}, killed=${res.killed}):\n\`\`\`\n${tail(res)}\n\`\`\`\n` +
           `Restore the baseline before any feature work. Start from a failing deterministic test at the lowest layer.`,
       );
     },
@@ -158,8 +177,8 @@ export default function (pi: ExtensionAPI) {
     description: "Run fast shallow Quint check (typecheck + test + simulator)",
     handler: async (_args, ctx) => {
       ctx.ui.notify("Running shallow Quint check (spec/scripts/check.sh)...", "info");
-      const res = await pi.exec("bash", ["./spec/scripts/check.sh"], { cwd: ctx.cwd });
-      if (res.code === 0) {
+      const res = await runGate(pi, ctx, ["./spec/scripts/check.sh"]);
+      if (res.verified) {
         ctx.ui.notify("✅ Quint shallow check passed!", "info");
         return;
       }
@@ -178,8 +197,8 @@ export default function (pi: ExtensionAPI) {
       const ok = await ctx.ui.confirm("Run Deep Quint Proof?", "This runs exhaustive model checking (quint verify) which is compute-intensive. Proceed?");
       if (!ok) return;
       ctx.ui.notify("🔒 Running exhaustive Quint model checker (spec/scripts/prove.sh)...", "info");
-      const res = await pi.exec("bash", ["./spec/scripts/prove.sh"], { cwd: ctx.cwd });
-      if (res.code === 0) {
+      const res = await runGate(pi, ctx, ["./spec/scripts/prove.sh"]);
+      if (res.verified) {
         ctx.ui.notify("✅ Full Quint formal proof and teeth probes succeeded!", "info");
         return;
       }
@@ -195,12 +214,15 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       const featureId = selectFeature(loadFeatures(ctx.cwd), args || (mode.kind === "shift" ? (mode.featureId ?? "") : ""))?.id;
       ctx.ui.notify("QA: running bash ./init.sh before evaluation...", "info");
-      const res = await pi.exec("bash", ["./init.sh"], { cwd: ctx.cwd });
-      const checksGreen = res.code === 0;
+      enter({ kind: "qa", featureId, checksGreen: false }, ctx, QA_TOOLS);
+      const featureListText = readIfExists(path.join(ctx.cwd, "feature_list.json")) ?? "";
+      const purpose = featureId === undefined ? { kind: "check" as const } : { kind: "qa" as const, featureId, featureListText };
+      const res = await runGate(pi, ctx, ["./init.sh"], purpose);
+      const checksGreen = res.verified && qaIsAuthorized(currentGateState(pi), featureId, readIfExists(path.join(ctx.cwd, "feature_list.json")) ?? "");
       enter({ kind: "qa", featureId, checksGreen }, ctx, QA_TOOLS);
       if (!checksGreen) {
         pi.sendUserMessage(
-          `[QA REJECTED — GATE RED]: 'bash ./init.sh' exited ${res.code}:\n\`\`\`\n${tail(res)}\n\`\`\`\n` +
+          `[QA REJECTED — GATE RED]: 'bash ./init.sh' did not produce current verification (exit ${res.code}, killed=${res.killed}):\n\`\`\`\n${tail(res)}\n\`\`\`\n` +
             `Do not mark anything passing. Summarise the failure; the operator will /shift ${featureId ?? ""} to fix it.`,
         );
         return;

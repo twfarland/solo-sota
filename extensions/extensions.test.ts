@@ -1,110 +1,10 @@
 // Drives the real extension factories against RecordingPi, a hand-written in-memory fake of the
 // subset of Pi's ExtensionAPI the harness uses. No mocking library.
-import { after, test } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import soloSotaHarness from "./solo-sota-harness.ts";
-import planQuintQaModes from "./plan-quint-qa-modes.ts";
-import selfRatchet from "./self-ratchet.ts";
-
-type Handler = (event: Record<string, unknown>, ctx: FakeContext) => Promise<unknown>;
-type ExecResult = { stdout: string; stderr: string; code: number; killed: boolean };
-type Command = { description: string; handler: (args: string, ctx: FakeContext) => Promise<void> };
-type Tool = {
-  name: string;
-  execute: (id: string, params: Record<string, unknown>, signal: undefined, onUpdate: undefined, ctx: FakeContext) => Promise<{ details: unknown }>;
-};
-
-class FakeContext {
-  readonly statuses = new Map<string, string | undefined>();
-  readonly notifications: string[] = [];
-  readonly hasUI = true;
-  readonly mode = "tui";
-  confirmAnswer = false;
-  reloads = 0;
-  readonly cwd: string;
-  constructor(cwd: string) {
-    this.cwd = cwd;
-  }
-  readonly ui = {
-    setStatus: (key: string, text: string | undefined) => void this.statuses.set(key, text),
-    notify: (message: string) => void this.notifications.push(message),
-    confirm: async () => this.confirmAnswer,
-  };
-  reload = async () => void this.reloads++;
-}
-
-class RecordingPi {
-  readonly handlers = new Map<string, Handler[]>();
-  readonly commands = new Map<string, Command>();
-  readonly tools = new Map<string, Tool>();
-  readonly sentMessages: string[] = [];
-  activeTools: string[] = [];
-  thinkingLevel = "";
-  nextExec: ExecResult = { stdout: "", stderr: "", code: 0, killed: false };
-  readonly execCalls: string[][] = [];
-
-  on(event: string, handler: Handler) {
-    this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler]);
-    return () => undefined;
-  }
-  registerCommand(name: string, command: Command) {
-    this.commands.set(name, command);
-  }
-  registerTool(tool: Tool) {
-    this.tools.set(tool.name, tool);
-  }
-  setActiveTools(tools: string[]) {
-    this.activeTools = tools;
-  }
-  setThinkingLevel(level: string) {
-    this.thinkingLevel = level;
-  }
-  sendUserMessage(content: string) {
-    this.sentMessages.push(content);
-  }
-  async exec(command: string, args: string[]) {
-    this.execCalls.push([command, ...args]);
-    return this.nextExec;
-  }
-
-  /** Emits like Pi: handlers run in order; the first defined result wins. */
-  async emit(event: string, payload: Record<string, unknown>, ctx: FakeContext): Promise<unknown> {
-    for (const handler of this.handlers.get(event) ?? []) {
-      const result = await handler({ type: event, ...payload }, ctx);
-      if (result !== undefined && !(event === "input" && (result as { action?: string }).action === "continue")) return result;
-    }
-    return undefined;
-  }
-  async run(command: string, args: string, ctx: FakeContext) {
-    const registered = this.commands.get(command);
-    assert.ok(registered, `command /${command} registered`);
-    await registered.handler(args, ctx);
-  }
-}
-
-const tempDirs: string[] = [];
-after(() => tempDirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
-
-function setup() {
-  const pi = new RecordingPi();
-  // RecordingPi implements only the surface the harness touches; the cast is confined to this test seam.
-  const api = pi as unknown as ExtensionAPI;
-  soloSotaHarness(api);
-  planQuintQaModes(api);
-  selfRatchet(api);
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-sota-"));
-  tempDirs.push(cwd);
-  return { pi, ctx: new FakeContext(cwd), cwd };
-}
-
-const FEATURES = JSON.stringify([{ id: "BOOT-001", description: "seed", steps: ["s"], passes: false }], null, 2);
-const write = (p: string, content: string) => ({ toolName: "write", toolCallId: "t", input: { path: p, content } });
-const blocked = (result: unknown) => (result as { block?: boolean } | undefined)?.block === true;
-const gateResult = (isError: boolean) => ({ toolName: "bash", toolCallId: "g", input: { command: "bash ./init.sh" }, content: [], isError });
+import { setup, FEATURES, write, blocked, gateResult } from "./recording-pi.fixture.ts";
 
 test("all extensions register the harness commands and tools", () => {
   const { pi } = setup();
@@ -129,8 +29,11 @@ test("guards block banned paths and mocking libraries but allow good files", asy
 
 test("two failing gates halt mutation until a human steers", async () => {
   const { pi, ctx } = setup();
-  await pi.emit("tool_result", gateResult(true), ctx);
-  await pi.emit("tool_result", gateResult(true), ctx);
+  for (const id of ["g1", "g2"]) {
+    const result = gateResult(true, id);
+    await pi.emit("tool_call", result, ctx);
+    await pi.emit("tool_result", result, ctx);
+  }
   assert.match(ctx.statuses.get("solo-sota") ?? "", /HALTED/);
   const result = await pi.emit("tool_call", write("checks/CheckRules.ts", "x"), ctx);
   assert.ok(blocked(result));
@@ -184,6 +87,28 @@ test("feature passes can only be marked from a green /qa", async () => {
   assert.ok(blocked(await pi.emit("tool_call", write("src/a.ts", "x"), ctx)), "QA may not edit code");
 });
 
+test("adapter enforces Plan backlog isolation and selected-feature QA for count-neutral swaps", async () => {
+  const { pi, ctx, cwd } = setup();
+  const before = JSON.stringify([
+    { id: "A", description: "a", steps: [], passes: true },
+    { id: "B", description: "b", steps: [], passes: false },
+  ]);
+  const after = JSON.stringify([
+    { id: "A", description: "a", steps: [], passes: false },
+    { id: "B", description: "b", steps: [], passes: true },
+  ]);
+  fs.writeFileSync(path.join(cwd, "feature_list.json"), before);
+  const swap = { toolName: "edit", toolCallId: "swap", input: { path: "feature_list.json", edits: [{ oldText: before, newText: after }] } };
+  await pi.run("shift", "B", ctx);
+  assert.ok(blocked(await pi.emit("tool_call", swap, ctx)));
+  await pi.run("plan", "audit", ctx);
+  assert.ok(blocked(await pi.emit("tool_call", swap, ctx)));
+  await pi.run("qa", "A", ctx);
+  assert.ok(blocked(await pi.emit("tool_call", swap, ctx)));
+  await pi.run("qa", "B", ctx);
+  assert.equal(await pi.emit("tool_call", swap, ctx), undefined);
+});
+
 test("architecture sensor edits require operator confirmation", async () => {
   const { pi, ctx } = setup();
   const edit = write("overlays/ts-node/lint-architecture.mjs", "// weaker");
@@ -196,6 +121,7 @@ test("verify_and_reload_harness reloads only after a green init.sh", async () =>
   const { pi, ctx } = setup();
   const tool = pi.tools.get("verify_and_reload_harness");
   assert.ok(tool);
+  await pi.emit("session_start", {}, ctx);
 
   pi.nextExec = { stdout: "", stderr: "tests failed", code: 1, killed: false };
   const red = await tool.execute("1", { summaryOfChange: "x" }, undefined, undefined, ctx);

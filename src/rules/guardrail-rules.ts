@@ -115,15 +115,67 @@ export function evaluateContentGuard(relPath: string, newContent: string): Guard
   return ALLOW;
 }
 
+// Lightweight lexical tokens: quoted strings, then common line/block comment forms.
+const COMMENT_TOKENS = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\*[\s\S]*?(?:\*\/|$)|<!--[\s\S]*?(?:-->|$)|\/\/[^\r\n]*|#[^\r\n]*|--[^\r\n]*/g;
+
+function invalidTodoMarkers(text: string): string[] {
+  return [...text.matchAll(COMMENT_TOKENS)].flatMap(([token]) => {
+    if (/^["'`]/.test(token)) return [];
+    const body = token.replace(/^(?:\/\/|\/\*|<!--|#|--)/, "").replace(/(?:\*\/|-->)$/, "");
+    return body.split(/\r?\n/).map(line => line.trim().replace(/^\*\s?/, "")).filter(line => {
+      if (!/^TODO\b/.test(line)) return false;
+      const valid = line.match(/^TODO\(([^()\r\n]*)\):[ \t]+(.+)$/);
+      return !valid?.[1]?.trim() || !valid[2]?.trim();
+    });
+  });
+}
+
+/** Reject newly introduced malformed comment markers, not unchanged legacy debt. */
+export function evaluateTodoDiffGuard(relPath: string, before: string, after: string): GuardDecision {
+  const remaining = new Map<string, number>();
+  for (const marker of invalidTodoMarkers(before)) remaining.set(marker, (remaining.get(marker) ?? 0) + 1);
+  for (const marker of invalidTodoMarkers(after)) {
+    const count = remaining.get(marker) ?? 0;
+    if (count === 0) return deny(`${relPath}: TODO GUARD introduces '${marker}'. REMEDIATION: Use TODO(owner): reason with a nonblank owner and reason.`);
+    remaining.set(marker, count - 1);
+  }
+  return ALLOW;
+}
+
 export function evaluateFeatureListEdit(oldText: string, newText: string): GuardDecision {
   const stripPasses = (s: string) => s.replace(/"passes"\s*:\s*(true|false)/g, "");
-  if (stripPasses(oldText) !== stripPasses(newText)) {
+  const oldContract = featureListContract(oldText);
+  const newContract = featureListContract(newText);
+  if (oldContract === undefined || newContract === undefined || oldContract !== newContract || stripPasses(oldText) !== stripPasses(newText)) {
     return deny(
       `CONTRACT VIOLATION: Modifying descriptions or steps in feature_list.json is forbidden. ` +
         `REMEDIATION: Only toggle '"passes": false' to '"passes": true' after full verification.`,
     );
   }
   return ALLOW;
+}
+
+/** Validates the schema and masks only each feature's top-level pass value. */
+function featureListContract(text: string): string | undefined {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(raw)) return undefined;
+  const contract: Record<string, unknown>[] = [];
+  const entries: readonly unknown[] = raw;
+  for (const entry of entries) {
+    if (typeof entry !== "object" || entry === null) return undefined;
+    const record = entry as Record<string, unknown>;
+    const steps = record["steps"];
+    if (typeof record["id"] !== "string" || typeof record["description"] !== "string" ||
+      typeof record["passes"] !== "boolean" || !Array.isArray(steps) ||
+      !steps.every((step: unknown) => typeof step === "string")) return undefined;
+    contract.push({ ...record, passes: false });
+  }
+  return JSON.stringify(contract);
 }
 
 export function isFeatureListPath(relPath: string): boolean {
@@ -136,15 +188,17 @@ export function isArchitectureSensorPath(relPath: string): boolean {
 
 /**
  * Evaluates every pure guard for a file mutation. `currentText` is the file's present content
- * (undefined when the file does not exist), needed only for the feature_list.json contract.
+ * (undefined when absent), used for introduced TODO markers and the backlog contract.
  */
 export function evaluateFileMutation(relPath: string, mutation: FileMutation, currentText: string | undefined): GuardDecision {
   const pathDecision = evaluatePathGuard(relPath);
   if (!pathDecision.allowed) return pathDecision;
   const contentDecision = evaluateContentGuard(relPath, introducedText(mutation));
   if (!contentDecision.allowed) return contentDecision;
+  const nextText = mutation.kind === "write" ? mutation.content : applyEdits(currentText ?? "", mutation.edits);
+  const todoDecision = evaluateTodoDiffGuard(relPath, currentText ?? "", nextText);
+  if (!todoDecision.allowed) return todoDecision;
   if (isFeatureListPath(relPath) && currentText !== undefined) {
-    const nextText = mutation.kind === "write" ? mutation.content : applyEdits(currentText, mutation.edits);
     return evaluateFeatureListEdit(currentText, nextText);
   }
   return ALLOW;

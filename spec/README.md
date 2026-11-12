@@ -4,7 +4,8 @@ Executable [Quint](https://github.com/informalsystems/quint) models of the state
 
 | File | Models | As-built code |
 | :--- | :--- | :--- |
-| `harness_lifecycle.qnt` (+ `.md`) | Plan → Shift → QA statechart, 2-strike cap, pass marking | `src/rules/strike-rules.ts`, `src/rules/harness-mode-rules.ts` |
+| `harness_lifecycle.qnt` (+ `.md`) | Plan → Shift → QA statechart, 2-strike cap, scoped approval, invalidation/reload | `src/rules/strike-rules.ts`, `src/rules/harness-mode-rules.ts`, gate-evidence rules |
+| `gate_evidence.qnt` (+ `.md`) | Receipt identity, current evidence, overlapping gates, backlog snapshots and strike restoration | `src/rules/gate-evidence-rules.ts`, `extensions/gate-runtime.ts`, always-on gate owner |
 
 ## Conventions
 - One `var s: State` record, `action init`, named actions, and `action step = any { ... }`.

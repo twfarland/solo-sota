@@ -4,7 +4,18 @@
   "description": "Self-improving Solo-SOTA Pi coding agent harness with Quint formal verification gates",
   "type": "module",
   "private": true,
-  "keywords": ["pi-package"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twfarland/solo-sota.git"
+  },
+  "homepage": "https://github.com/twfarland/solo-sota#readme",
+  "bugs": {
+    "url": "https://github.com/twfarland/solo-sota/issues"
+  },
+  "keywords": [
+    "pi-package"
+  ],
   "engines": {
     "node": ">=23.6"
   },
@@ -14,18 +25,24 @@
       "./extensions/plan-quint-qa-modes.ts",
       "./extensions/self-ratchet.ts"
     ],
-    "skills": ["./skills"]
+    "skills": [
+      "./skills"
+    ]
   },
   "scripts": {
+    "create-project": "node ./bin/create-project.mjs",
+    "adopt-project": "node ./bin/adopt-project.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test \"src/**/*.test.ts\" \"overlays/**/*.test.mjs\"",
-    "lint:architecture": "node ./overlays/ts-node/lint-architecture.mjs src extensions",
+    "lint:architecture": "node ./overlays/ts-node/lint-architecture.mjs src extensions overlays bin scripts",
+    "check:symmetry": "node ./scripts/check-context-symmetry.mjs .",
+    "check:todos": "node ./scripts/check-todo-diff.mjs .",
     "quint:check": "bash ./spec/scripts/check.sh",
     "quint:prove": "bash ./spec/scripts/prove.sh",
     "init": "bash ./init.sh"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@earendil-works/pi-coding-agent": "1.5.2",
     "@informalsystems/quint": "0.33.1",
     "@types/node": "^24.0.0",
     "typebox": "1.3.27",

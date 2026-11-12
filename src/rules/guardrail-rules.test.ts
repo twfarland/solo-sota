@@ -8,6 +8,7 @@ import {
   evaluatePathGuard,
   evaluatePlanModeShell,
   evaluatePlanModeWrite,
+  evaluateTodoDiffGuard,
   isArchitectureSensorPath,
   localContextDirs,
   parseFileMutation,
@@ -95,6 +96,43 @@ test("content guard allows prose mentioning mocks and hand-written fakes", () =>
   assert.equal(evaluateContentGuard("InMemoryCheckStore.kt", "class InMemoryCheckStore : CheckStore {}").allowed, true);
 });
 
+test("new TODO comments require a nonblank owner and reason", () => {
+  for (const comment of ["// TODO fix this", "# TODO: later", "/* TODO(): fix */", "// TODO(team):   ", "<!-- TODO( ): fix -->"]) {
+    const reason = reasonOf(evaluateTodoDiffGuard("checks/CheckRules.ts", "", comment));
+    assert.match(reason, /TODO GUARD/);
+    assert.match(reason, /TODO\(owner\): reason/);
+  }
+  for (const comment of ["// TODO(alex): handle retries", "# TODO(@team): handle retries", "/* TODO(team): fix */", "<!-- TODO(team): fix -->"]) {
+    assert.deepEqual(evaluateTodoDiffGuard("checks/CheckRules.ts", "", comment), { allowed: true });
+  }
+});
+
+test("TODO guard preserves unchanged legacy markers but rejects new duplicates or regressions", () => {
+  const legacy = "// TODO fix later";
+  assert.equal(evaluateTodoDiffGuard("Check.ts", legacy, `${legacy}\nexport {};`).allowed, true);
+  assert.equal(evaluateTodoDiffGuard("Check.ts", legacy, `${legacy}\n${legacy}`).allowed, false);
+  assert.equal(evaluateTodoDiffGuard("Check.ts", legacy, "// TODO(alex): fix later").allowed, true);
+  assert.equal(evaluateTodoDiffGuard("Check.ts", "// TODO(alex): fix later", legacy).allowed, false);
+  assert.equal(evaluateTodoDiffGuard("Check.ts", legacy, "").allowed, true);
+});
+
+test("TODO guard checks inline and multiline comments, not quoted strings or prose", () => {
+  for (const text of ["const n = 1; // TODO later", "/*\n * TODO later\n */", "<!--\nTODO later\n-->", "-- TODO later"]) {
+    assert.equal(evaluateTodoDiffGuard("Check.ts", "", text).allowed, false, text);
+  }
+  for (const text of ['const s = "// TODO later";', "const s = '// TODO later';", "const s = `// TODO later`;", "Document TODO formatting here."]) {
+    assert.equal(evaluateTodoDiffGuard("Check.ts", "", text).allowed, true, text);
+  }
+});
+
+test("file-mutation guard checks TODOs in projected content, including marker assembly", () => {
+  const before = "// TO later\nconst n = 1;";
+  const edit = { kind: "edit" as const, path: "Check.ts", edits: [{ oldText: "TO", newText: "TODO" }] };
+  assert.match(reasonOf(evaluateFileMutation("Check.ts", edit, before)), /TODO GUARD/);
+  assert.equal(evaluateFileMutation("Check.ts", { kind: "write", path: "Check.ts", content: "// TODO later" }, undefined).allowed, false);
+  assert.equal(evaluateFileMutation("Check.ts", { kind: "write", path: "Check.ts", content: "// TO later\nconst n = 2;" }, before).allowed, true);
+});
+
 const FEATURES = `[
   { "id": "BOOT-001", "description": "Scaffold", "steps": ["a"], "passes": false }
 ]`;
@@ -112,6 +150,42 @@ test("feature list guard blocks description, step, and id mutations", () => {
   ]) {
     assert.match(reasonOf(evaluateFeatureListEdit(FEATURES, next)), /CONTRACT VIOLATION/);
   }
+});
+
+test("feature list guard permits only top-level pass changes, not nested passes fields", () => {
+  const before = JSON.stringify([{
+    id: "BOOT-001", description: "Scaffold", steps: ["a"], passes: false,
+    metadata: { passes: false, review: [{ passes: true }] },
+  }]);
+  const topLevelToggle = before.replace('"steps":["a"],"passes":false', '"steps":["a"],"passes":true');
+  assert.deepEqual(evaluateFeatureListEdit(before, topLevelToggle), { allowed: true });
+  for (const after of [
+    before.replace('"metadata":{"passes":false', '"metadata":{"passes":true'),
+    before.replace('"review":[{"passes":true}]', '"review":[{"passes":false}]'),
+    topLevelToggle.replace('"metadata":{"passes":false', '"metadata":{"passes":true'),
+  ]) {
+    assert.match(reasonOf(evaluateFeatureListEdit(before, after)), /CONTRACT VIOLATION/);
+  }
+});
+
+test("feature list guard rejects deleted booleans and malformed feature lists", () => {
+  for (const next of [
+    FEATURES.replace('"passes": false', ""),
+    FEATURES.replace('"passes": false', '"passes": true"passes": false'),
+    FEATURES.replace('"passes": false', '"passes": null'),
+  ]) {
+    assert.match(reasonOf(evaluateFeatureListEdit(FEATURES, next)), /CONTRACT VIOLATION/);
+  }
+  for (const invalid of [
+    '{}',
+    '[{"passes": false}]',
+    '[{"id":"X","description":"x","steps":"a","passes":false}]',
+    FEATURES.replace('"passes": false', '"passes": "false"'),
+  ]) {
+    assert.match(reasonOf(evaluateFeatureListEdit(invalid, invalid)), /CONTRACT VIOLATION/);
+  }
+  const soleField = '[{"passes":false}]';
+  assert.match(reasonOf(evaluateFeatureListEdit(soleField, '[{}]')), /CONTRACT VIOLATION/);
 });
 
 test("parseFileMutation parses write and edit inputs and rejects malformed ones", () => {

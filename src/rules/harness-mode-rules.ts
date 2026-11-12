@@ -1,8 +1,11 @@
 // Pure harness mode statechart decisions (/plan, /shift, /quint-sync, /qa).
 // Mirrors spec/harness_lifecycle.qnt inv_no_unverified_pass: a feature may only be marked
-// passing from QA mode, after the deterministic gate ran green, with no other files mutated.
+// passing only for QA's selected feature with current ledger-backed evidence.
+// The adapter refreshes checksGreen from gate-evidence-rules before each decision;
+// shell/custom-tool mediation remains separate (see ROADMAP.md).
 import {
   assertNever,
+  evaluateFeatureListEdit,
   evaluatePlanModeShell,
   evaluatePlanModeWrite,
   isFeatureListPath,
@@ -26,11 +29,12 @@ const ALLOW: GuardDecision = { allowed: true };
 const deny = (reason: string): GuardDecision => ({ allowed: false, reason });
 
 export function countPassing(featureListText: string): number {
-  return (featureListText.match(/"passes"\s*:\s*true/g) ?? []).length;
+  return (parseFeatureList(featureListText) ?? []).filter(feature => feature.passes).length;
 }
 
 export function evaluateModeToolCall(mode: HarnessMode, call: ModeToolCall): GuardDecision {
   if (call.kind === "fileMutation" && isFeatureListPath(call.relPath)) {
+    if (mode.kind === "plan") return evaluatePlanModeWrite(call.relPath, mode.planFile);
     return evaluateFeatureListMutation(mode, call.currentText ?? "", call.nextText);
   }
   switch (mode.kind) {
@@ -50,7 +54,13 @@ export function evaluateModeToolCall(mode: HarnessMode, call: ModeToolCall): Gua
 }
 
 function evaluateFeatureListMutation(mode: HarnessMode, currentText: string, nextText: string): GuardDecision {
-  if (countPassing(nextText) <= countPassing(currentText)) return ALLOW;
+  const contract = evaluateFeatureListEdit(currentText, nextText);
+  if (!contract.allowed) return contract;
+  const current = parseFeatureList(currentText);
+  const next = parseFeatureList(nextText);
+  if (!current || !next) return deny("CONTRACT VIOLATION: Expected valid feature lists with unique IDs.");
+  const newlyPassing = next.filter(feature => feature.passes && !current.find(previous => previous.id === feature.id)?.passes);
+  if (newlyPassing.length === 0) return ALLOW;
   if (mode.kind !== "qa") {
     return deny(
       `UNVERIFIED PASS (inv_no_unverified_pass): features may only be marked passing from /qa. ` +
@@ -59,6 +69,9 @@ function evaluateFeatureListMutation(mode: HarnessMode, currentText: string, nex
   }
   if (!mode.checksGreen) {
     return deny(`UNVERIFIED PASS (inv_no_unverified_pass): the /qa deterministic gate is not green. REMEDIATION: Reject back to /shift and fix the failures.`);
+  }
+  if (newlyPassing.some(feature => feature.id !== mode.featureId)) {
+    return deny("UNVERIFIED PASS: Only the selected QA feature may be approved. REMEDIATION: Run /qa <feature-id> for each feature separately.");
   }
   return ALLOW;
 }
@@ -81,7 +94,7 @@ export function parseFeatureList(text: string): Feature[] | undefined {
     const { id, description, passes } = entry as Record<string, unknown>;
     return typeof id === "string" && typeof description === "string" && typeof passes === "boolean" ? [{ id, description, passes }] : [];
   });
-  return features.length === raw.length ? features : undefined;
+  return features.length === raw.length && new Set(features.map(feature => feature.id)).size === features.length ? features : undefined;
 }
 
 /** The requested feature if given, else the first feature that is not yet passing. */

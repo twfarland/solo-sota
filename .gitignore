@@ -2,3 +2,18 @@ node_modules/
 spec/traces/
 .tmp/
 *.log
+
+# Local credentials, Pi configuration and migration originals
+.env*
+.pi/settings.json
+.pi/mcp.json
+.pi/auth.json
+.pi/sessions/
+.solo-sota-backup/
+
+# Generated output and workstation metadata
+coverage/
+dist/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db

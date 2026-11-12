@@ -27,3 +27,442 @@ Gates: ./init.sh green (tsc clean; node --test 58/58; lint-architecture clean; c
   extensions load, status "🛡 Solo-SOTA · guards on · strikes 0/2", 9 commands registered, /quint-check passed.
 Next: Stage 2 is self-hosted. "passes" are still false on purpose: only a green /qa may flip them
   (inv_no_unverified_pass). In Pi: /qa BOOT-001 … BOOT-004, then /shift BOOT-005 (bin/apply-harness.mjs).
+
+## 2026-11-10 BOOT-001 / BOOT-002 — QA and feature-list contract repair
+Changed: BOOT-001 passed QA and was marked passing after green gates. BOOT-002 QA found
+  that removing passes text could bypass the regex-only contract guard. Added a regression
+  test first (observed failing), then required valid feature-list JSON with typed fields
+  before the existing exact non-passes comparison. Documented the stricter contract.
+Gates: ./init.sh green before and after implementation (59 tests; typecheck and architecture
+  lint clean; Quint shallow checks green). Deep proof not run; no statechart changes.
+Next: Re-run /qa BOOT-002; its passes flag remains false. Gradle isolation in BOOT-001
+  was source-reviewed, not runtime-tested.
+
+## 2026-11-10 BOOT-005 — Self-hosted bootstrapper CLI
+Changed: Added bin/apply-harness.mjs with pure bootstrap-rules for arguments, fixed
+  stack manifests, and AGENTS/init rendering. Installs core guidance, architecture
+  template, selected overlay, target init.sh, and shared Quint gates. Identical
+  installs are no-ops; conflicts and symbolic-link paths are rejected before writes.
+  Added real-temp-directory CLI tests for all three stacks and pure-rule tests;
+  included bin in architecture-lint invocations. Added README setup/limitations and
+  updated ARCHITECTURE.md. Existing BOOT-001..004 QA flags are retained; BOOT-005
+  remains false for independent QA. No global Pi settings were changed.
+Gates: Initial test-first run failed for missing implementation; next run found an
+  incorrect expected overlay string (6/7 tests passed). Stopped at two strikes;
+  operator authorized correcting the expectation. Full ./init.sh then green,
+  including final run: 66/66 tests, tsc clean, architecture lint 17 files, Quint
+  typecheck, 2 scenario tests, 200-sample safety simulation and teeth witness green.
+  Manual Kotlin install into a clean temporary test-kt-repo verified all acceptance
+  files; repeat install wrote 0 files. Shell syntax checked for generated gates.
+  Gradle/Cargo/target app tests and deep Quint proof not run. No lifecycle changes.
+Next: /qa BOOT-005, then /shift BOOT-006. Target users must configure architecture
+  templates, install toolchains/Quint, and add their own formal models before use.
+
+## 2026-11-10 HARN-001 — Operator-approved harness-first refocus and audit
+Changed: Paused BOOT-005..007 work without rewriting the immutable bootstrap backlog.
+  ROADMAP.md is the active stabilization queue with acceptance criteria, concrete
+  audit findings, and checkpoints back to BOOT-005's narrow installer contract.
+  Updated AGENTS/README/ARCHITECTURE with current scope and known proof limitations.
+  Fixed count-neutral approval swaps, wrong/missing QA feature IDs, Plan backlog
+  writes, malformed/rewritten lists at the mode boundary, and duplicate feature IDs.
+  Regressions were observed failing before implementation; adapter tests also
+  exercise real factories with a hand-written recording Pi. Extended lifecycle
+  model with two feature identities, scoped approval invariant and scenario.
+Audit: Confirmed stale green QA after a later failure, shell requests escaping the
+  always-on halt and Plan blacklist, nested/outside protected-path gaps, and nested
+  metadata.passes contract changes. Direct pi.exec gate accounting and edit-result
+  prediction need integration verification. All are tracked, not claimed fixed.
+  Previous BOOT-005 QA's generated-gate false green remains an explicit blocker.
+Gates: Baseline green (66 tests). Focused new regressions failed as expected, then
+  passed. One full gate caught a missing Quint function return annotation; corrected
+  it and reran shallow gate green. Final ./init.sh green: 71/71 Node tests,
+  typecheck and architecture lint clean, 3 Quint scenarios, 200-sample simulation
+  of 3 safety invariants and teeth witness green. Deep proof and new real-Pi
+  lifecycle testing not run; those are not implied by the recording-adapter probes.
+Next: Independently review ROADMAP.md HARN-001, then implement HARN-002 (fresh gate
+  evidence and unified strike accounting). Use explicit operator tasks for HARN
+  IDs; slash commands still select the immutable bootstrap backlog. Do not use bare
+  /shift to resume BOOT-005 by accident. No passes flags changed in this refocus.
+
+## 2026-11-10 HARN-001 — Scoped review and nested-contract regression repair
+Reviewed: Per-ID approval authorization, pass-count-neutral swaps, selected QA ID,
+  duplicate IDs, Plan backlog isolation, and adapter wiring against ROADMAP.md.
+  Found that the prior contract guard still allowed nested metadata.passes edits,
+  including alongside an otherwise authorized top-level approval.
+Changed: Added pure contract and green-QA regressions first; observed both failing.
+  Contract comparison now parses and masks only top-level feature pass values,
+  preserving all nested data and the previous strict textual restriction. Updated
+  ROADMAP/README/ARCHITECTURE with scoped review evidence and remaining boundaries.
+Gates: Baseline ./init.sh green (71 tests). Regression run 33/35 passed, with both
+  new cases failing as expected. After repair, ./init.sh green (73 tests; typecheck,
+  architecture lint, 3 Quint scenarios, 3 simulated safety invariants, teeth probe).
+  Focused guards/modes/adapters suite 46/46 passed. No lifecycle change in this
+  review; deep proof and new real-Pi lifecycle verification not run.
+Next: Implement ROADMAP.md HARN-002: stale/cancelled gate evidence, direct-exec
+  reporting and strike accounting. HARN-001 scoped review is complete, not a release
+  sign-off; HARN-002..005 remain open. No passes flags or bootstrap scope changed.
+
+## 2026-11-10 HARN-002 — Current-run evidence and shared gate accounting
+Changed: Added pure gate-evidence rules (run IDs, revisions, receipts, purposes,
+  backlog snapshots, cancellation and branch-strike restoration). One always-on
+  owner now accounts recognized Bash/PowerShell tool gates plus command and self-
+  verification runs through a shared effect adapter. Later gates, observed file
+  mutations, mode/branch/session changes and approval completion revoke proof.
+  Observed backlog mismatch cannot be undone by restoring old text. Queued reloads
+  recheck run identity, current evidence and cancellation, even after queuing.
+  Strike entries survive reload on the active branch; proof never persists.
+  Uninitialized owners withhold state and restore on first real context.
+Tests: Extracted the recording Pi fixture; preserved existing tests and corrected
+  tool-result composition to match Pi. Added pure/recording regressions and actual
+  Pi SDK sessions with real shell checks, nested Bash/edit hooks, cancellation,
+  approval denial/success, operator recovery and reload; zero provider requests.
+  Both bound and unbound SDK hosts are covered. The latter skips session_start
+  after reload, so guarded tool context restoration is explicitly exercised.
+Models: Extended harness_lifecycle and added gate_evidence with receipt, revision,
+  concurrency, snapshot and queued-reload checks. A valid uninterrupted QA macro
+  is included alongside all fine-grained actions so random sampling reaches the
+  teeth witness reliably; no invariant, interleaving or sensor was removed.
+Experiments: Initial regressions failed before implementation, then focused suite
+  passed. Real integration first exposed missing caller history, then skipped SDK
+  startup on reload; stopped at two strikes and operator authorized continuation.
+  Resumed baseline reproduced reload failure (86/87). Corrected host binding and
+  added fail-closed restoration: both real SDK cases passed. One new model's teeth
+  probe missed an otherwise deterministic-tested path; added the legal macro and
+  reran green. Late queued cancellation and backlog restoration regressions were
+  also observed failing and repaired before final verification.
+Gates: ./init.sh green: 92/92 Node tests, tsc clean, architecture lint 23 files,
+  14 Quint scenarios across two models, 200-sample simulation per model of 7 safety
+  invariants total, and both teeth witnesses reached. git diff --check clean.
+  Deep proof not run; Kotlin/Rust toolchain proof not added. No backlog flags changed.
+Next: Scoped review of ROADMAP.md HARN-002, then HARN-003 mutation/shell boundaries.
+  Known shell/custom-tool escapes and exact edit prediction remain release blockers;
+  branch-local strike persistence is not a global cross-session lock. BOOT-005..007
+  remain paused; the documented return checkpoints are unchanged.
+
+## 2026-11-10 HARN-002 — Scoped adversarial review and abandoned-receipt repair
+Reviewed: Gate ownership, evidence revisions/purposes, exact backlog binding,
+  duplicate receipts, cancellation, shared outcomes, branch restoration, real SDK
+  coverage and sensors. Baseline ./init.sh green (92 tests). Existing bootstrap
+  work and earlier QA pass flags were preserved; no architecture sensor changed.
+Finding/repaired: A pending command gate could finish after tree navigation and
+  change the restored branch's strikes: old success reset one strike; old failure
+  added one. Pure and recording regressions failed first (17/19 passed). Completion
+  now requires a matching live pending run; abandoned/unknown receipts are ignored
+  without changing strikes, proof or revisions. Recording tool-result tests now
+  explicitly send tool_call first, matching real Pi instead of inventing orphan
+  executions. Duplicate, failure, reset and halt assertions remain intact.
+Models: Added late branch success/failure and newer-QA preservation scenarios;
+  finish ignores unknown receipts, matching the repaired pure rule. No safety
+  invariant, scenario or sensor was removed. Updated README, architecture, model
+  companion and roadmap with the actual receipt contract and scope boundaries.
+Separate lifecycle finding: Reproduced pending /qa -> /plan -> old QA completion
+  changing the mode back to QA red. Proof stays revoked, but newer permissions are
+  superseded. Recorded the concrete probe and acceptance requirement under HARN-005;
+  this remains a release blocker, not a claim of end-to-end lifecycle correctness.
+Gates: Focused pure/recording/real SDK suite 32/32 passed. ./init.sh green: 94/94
+  Node tests, tsc, architecture lint, 17 Quint scenarios across two models, seven
+  simulated safety invariants and both teeth witnesses. git diff --check clean.
+Verdict: HARN-002 scoped acceptance reviewed after repair; no backlog flags changed.
+  No external reviewer or deep model checker was run. Next implementation is
+  HARN-003: written mediation threat model, shell/custom-tool and protected-path
+  boundaries. HARN-004/005 and bootstrap return checkpoints remain unchanged.
+
+## 2026-11-10 BOOT-005 — Operator redirects back to bootstrap; gate blocker repaired
+Direction: Operator said the hardening diversion was too long before bootstrap.
+  Resume BOOT-005 now; HARN-003…005 remain documented but are no longer bootstrap
+  prerequisites. Updated AGENTS/README/ROADMAP/architecture to prevent another
+  automatic return to the hardening queue. Existing guards and tests stay intact.
+Changed: Replaced generated TypeScript/Rust AND-lists with standalone fail-fast
+  commands under set -e. This prevents a later successful Quint stage from masking
+  an earlier compiler/test/linter failure. No CLI surface or stack scope expanded.
+Tests: Added actual Bash executions using controlled command fixtures for all three
+  generated gates. Each stage fails with exit 17 in turn; trace assertions require
+  no later stage to execute. Success must execute every stage. The regression run
+  reproduced masked TS/Rust failures (1/3 tests passed); after repair all 12 stage
+  scenarios pass across three tests. Pure assertions now require separate lines.
+Acceptance: Ran the actual CLI with --stack kotlin-gradle into a clean temporary
+  directory. Required AGENTS.md, init.sh, check/prove scripts and Gradle isolation
+  asset exist; isolation asset matches source byte-for-byte. First install wrote
+  10 files; repeat wrote 0. Existing integration tests also verify all three stack
+  manifests, conflict preservation, symlink refusal and shell syntax. No Gradle,
+  Cargo, external application or provider requests were needed.
+Gates: Focused bootstrap suite 10/10 passed. ./init.sh green: 97/97 Node tests,
+  typecheck, architecture lint (24 files), existing 17 Quint scenarios and safety/
+  teeth checks. git diff --check clean. No mode/strike statechart change or new
+  formal model; no backlog flags changed.
+Next: /qa BOOT-005 against the installer acceptance and repaired gate evidence.
+  Then resume the original bootstrap backlog as needed, not HARN-003. Deferred
+  hardening risks still prohibit security/sandbox claims; they do not block this
+  narrow installer milestone.
+
+## 2026-11-10 BOOT-006 — Bounded-context contract symmetry checker
+Context: BOOT-005 passed the operator's /qa and its flag is true. Operator invoked
+  /shift BOOT-006; deferred HARN work stayed deferred. Baseline ./init.sh green.
+Changed: Added pure context-symmetry rules and scripts/check-context-symmetry.mjs,
+  a read-only directory-inventory adapter. Ports plus production source under
+  postgres/adapters/outbound require a local *Contract suite. Diagnostics identify
+  the Ports file, adapter, exact suggested sibling and fake/real execution duty.
+  Neighbor contexts cannot supply the missing suite. Dependency/build directories
+  and links are skipped; invalid roots/errors exit 2 rather than false-green.
+Tests: Wrote pure and real-filesystem CLI regressions first; initial run failed
+  because the new implementation did not exist. After implementation 9/9 passed.
+  Coverage includes missing/present suites, local test/adapter placement, neighbor
+  isolation, inbound-only/no-adapter cases, normalization, stack-specific filename
+  suggestions, ignored directories, junction/symlink traversal and CLI errors.
+Integration: Added check:symmetry and the local init.sh stage; extended architecture
+  scan roots to scripts without modifying or weakening the linter. Updated README,
+  architecture, AGENTS and roadmap to the active BOOT-006 scope. No target installer
+  asset expansion; run the checker from this checkout against a chosen root.
+Scope/model sync: This is a stateless filename-presence rule, not AST analysis,
+  per-port coverage or proof of fake/real suite execution. Recognized directories
+  and naming conventions are explicit; cross-source-set package mapping is not
+  inferred. No lifecycle/strike/ordering change needs a new Quint state model;
+  existing models remain unchanged and green.
+Gates: ./init.sh green: 106/106 Node tests, typecheck, architecture lint 28 files,
+  context symmetry, existing 17 Quint scenarios, safety simulations and teeth
+  probes. git diff --check clean. No backlog flags changed during this shift.
+Next: /qa BOOT-006 against its two original acceptance steps, then BOOT-007.
+  No further hardening prerequisite added.
+
+## 2026-11-10 BOOT-007 — TODO ownership/reason ratchet
+Context: Operator completed /qa BOOT-006, then invoked /ratchet to block new TODO
+  comments unless formatted TODO(owner): reason. BOOT-007 remains the final item.
+Changed: Added evaluateTodoDiffGuard in guardrail-rules.ts and integrated it with
+  projected write/edit content. Malformed-marker multisets allow unchanged legacy
+  debt but reject new markers, extra copies, and valid-to-invalid regressions.
+  Added read-only scripts/check-todo-diff.mjs and check:todos; init.sh runs it against
+  changed working-tree paths and untracked text files relative to HEAD. New/staged
+  additions and unborn repositories are covered; no Git/config/file writes occur.
+Tests: Wrote pure and Git-backed tests first. Initial missing-implementation run
+  failed; implementation follow-up passed 26/27 with one diagnostic-order mismatch.
+  Honored the two-strike halt. Operator authorized continuation; resumed baseline
+  reproduced 112/113 with that same failure. Changed implementation diagnostic order,
+  not test expectations. Focused guards/Git suite then passed 27/27.
+Coverage: Blank ownership/reasons, valid markers, inline/block/HTML/hash/SQL forms,
+  quoted strings/prose, legacy preservation, duplicates, removal/fixes, assembled
+  markers in edit projections, tracked/untracked/staged additions, unborn HEAD and
+  non-Git errors. Lightweight lexer limitations are documented rather than claimed
+  as AST completeness; the diff gate validates working-tree content, not a separate
+  index snapshot. Binary/NUL files and symlinks are skipped.
+Docs/model: Updated README, architecture, AGENTS and roadmap. Pure stateless rule;
+  no lifecycle/strike/order change, so existing Quint models are unchanged. No guard,
+  linter or invariant was weakened; no live extension reload or deep proof claimed.
+Gates: ./init.sh green: 113/113 Node tests, typecheck, architecture lint 30 files,
+  symmetry, TODO diff, existing 17 Quint scenarios and safety/teeth checks.
+  git diff --check clean. No backlog flags changed during ratchet implementation.
+Next: /qa BOOT-007; only that review may set its passes flag. Once approved, the
+  original bootstrap backlog is complete. Deferred hardening is not a prerequisite.
+
+## 2026-11-10 Post-bootstrap — TypeScript/Node-only distribution and usage guide
+Context: Operator completed /qa BOOT-007: all seven bootstrap features are passing.
+  Asked how to use the harness/reload it, and explicitly authorized removing the
+  other stack-specific assets rather than extending the bootstrap diversion.
+Changed: Removed overlays/kotlin-gradle and overlays/rust-cargo, their installer
+  branches and generated-gate fixtures. Only --stack ts-node is accepted; retired
+  arguments fail before target creation. The fixed manifest and sequential TS
+  gate retain repeat safety, conflict preflight, link refusal and failure tests.
+  Replaced retired asset/layout tests with current TS-only distribution and
+  per-agent output checks. Symmetry supports ts/mts/cts/tsx without retired naming
+  branches. Replaced obsolete multi-stack bootstrap.md with current-document links.
+Tests/steering: New rejection regressions failed first. Focused suite then passed
+  16/17; the new guidance assertion expected 'separate worktrees' while the overlay
+  said 'its own git worktree'. Stopped at two strikes; operator said continue.
+  Clarified overlay wording and resumed full baseline green (113/113). Subsequent
+  TS-only symmetry regression failed first (5/6), then pure/CLI checks passed 9/9.
+Docs: README now covers /reload versus /new, --continue, explicit extension and skill
+  loading, working-directory semantics, project-owned backlogs and target setup.
+  Verified startup/reload/session flags against installed Pi 1.0 documentation.
+  Updated AGENTS, architecture, core parallel-isolation example and roadmap to the
+  completed bootstrap and current supported scope. No global Pi settings changed;
+  no live runtime reload or provider request claimed. Target CLI checkers remain
+  checkout-local as documented; installation alone does not activate extensions.
+Preserved: Original acceptance criteria, all seven pass flags and append-only
+  ledger. Broad language-independent protective guard patterns/tests stay intact;
+  old stack names otherwise remain only in history and negative rejection fixtures.
+  The active TypeScript architecture linter and its tests were not changed. The
+  operator-authorized retirement does not certify or close deferred HARN findings.
+Gates: ./init.sh green: 113/113 Node tests, typecheck, architecture lint 30 files,
+  symmetry/TODO checks, existing 17 Quint scenarios, safety simulations and teeth.
+  Real TS-target install wrote 9 files; repeat wrote 0; linter copy matched source
+  and generated Bash syntax passed. Compared original/current backlog contracts
+  excluding only passes: identical. git diff --check clean. No statechart changes.
+Next: Use the harness on an actual TypeScript project via README. /reload suffices
+  when already loaded; otherwise relaunch with explicit source paths, --continue
+  if keeping this project's conversation. Use a fresh session in a different repo.
+  No next bootstrap item, automatic hardening task, commit or global installation.
+
+## 2026-11-10 Post-bootstrap — Fresh TypeScript project + Git command
+Request: Operator asked for a command to bootstrap a new project with this harness
+  and Git. Kept this separate from the safe installer for existing projects.
+Changed: Added bin/create-project.mjs and npm run create-project -- --target <dir>.
+  Pure project-bootstrap rules parse args and render the project manifest; the
+  adapter reuses apply-harness instead of duplicating its asset manifest. Declares
+  local TS/Vitest/Quint dependencies, strict tsconfig, a genuine Node runtime contract
+  test from a stack template, .gitignore, setup README and initial handoff ledger.
+  Local ignored .pi/settings.json points to the shared extensions/skills. Ordinary
+  pi loads these after operator trust approval; inherited resources still apply.
+Git/safety: Requires a nonexistent destination, rejects linked/non-directory
+  ancestors and nested ordinary or bare repositories before writing. Initializes
+  main with empty templates, without staging, commits, remotes or identity changes.
+  Clears inherited GIT_* overrides so initialization cannot redirect to another
+  worktree/index through those variables. No global Pi settings or saved trust
+  decisions changed. No automatic dependency installation or rollback. Partial
+  scaffolds after an infrastructure failure require manual inspection.
+Testing: Baseline green first. New CLI/pure tests failed before implementation,
+  then all seven passed; full harness baseline reached 120/120 tests. Real temp
+  filesystem/Git tests cover spaces/relative targets, existing folders, ordinary
+  and bare parents, non-directory/link ancestors, missing Git, poisoned Git env,
+  no commit/staging/remote/templates, ignore rules and live resource paths.
+Smoke: Executed documented npm script to create a real temporary project, installed
+  actual npm devDependencies with lifecycle scripts disabled, and ran generated
+  ./init.sh successfully: TypeScript passed, Vitest 4.1.12 passed the runtime test,
+  architecture lint passed, Quint explicitly reported no project models. Main was
+  unborn, all project files remained unstaged and local Pi settings were ignored.
+  Removed the smoke project afterward. No live Pi startup/provider request claimed.
+Docs/review: README documents command, prerequisites, trust, machine-local paths,
+  inherited extensions, no overwrite/transaction promises and application-owned
+  acceptance/models. Architecture map updated; models/statecharts/guards and
+  original feature criteria/pass flags unchanged. No sensor/test weakened.
+Next: Use npm run create-project -- --target ../<name>, then npm install, ./init.sh
+  and pi in the target. Establish real application architecture/backlog before
+  /shift. Bootstrap history remains complete; deferred hardening is not started.
+
+## 2026-11-10 Post-bootstrap — Adopt an existing vanilla Pi project
+Request: Operator asked for a command to add/migrate Solo-SOTA into an existing
+  Pi project without silently conflicting with its setup.
+Changed: Added npm run adopt-project -- --target <existing-dir>, read-only by
+  default; --apply explicitly opts into the inspected file integration. Pure
+  adoption rules plan additive resource/context merges, owned-file preservation,
+  conflicts and original-file backups. Adapter reads only bounded candidate paths,
+  refuses links/non-directory/Git-metadata targets, rechecks the full write set,
+  then writes backups first. Shared runtime resource rendering now serves both
+  new-project creation and adoption; no duplicate registration manifest added.
+Preservation: Retains unrelated settings/provider/tools/packages/resources and
+  original context text; appends managed full guidance to the effective root
+  AGENTS.override/AGENTS/CLAUDE file rather than shadowing existing instructions.
+  Existing init.sh, architecture and spec README stay project-owned and are
+  flagged for integration. Differing harness assets/sensors block all writes.
+  App code/tests, package/lock/tsconfig, backlog/pass flags, MCP, system prompts,
+  Git config/index/history and global settings/trust decisions are not rewritten.
+Conflicts/limits: Strict JSON only; resource exclusions, another explicit harness
+  file copy, modified/ambiguous managed markers and occupied differing backups
+  require human resolution. Existing global/package/directory resources can still
+  conflict at runtime; no semantic compatibility, gate coverage or sandbox claim.
+  Modified originals go under ignored .solo-sota-backup; tracked settings remain
+  tracked. Repeats are no-ops. No forced merge, dependency install, gate execution,
+  automatic rollback or concurrent-writer safety is promised. Custom divergent
+  sensors may require manual completion rather than an automated asset install.
+Testing: Baseline 120/120 green first. New pure/CLI tests failed before code, then
+  all 10 passed and full baseline reached 130/130. Real committed Git fixture
+  proves preview changes nothing, application files/Git metadata survive apply,
+  backups preserve originals and repeat writes zero. Additional real-filesystem
+  cases cover conflicts, malformed settings, exclusions, edited managed guidance,
+  linked paths/hard links, missing targets and refusal to target .git metadata.
+Review fix: A new failing pure regression caught +filename inclusions hiding a
+  second explicit harness copy from basename comparison. Normalized the inclusion
+  prefix consistently; focused 10/10 green afterward. No sensors/guards loosened.
+Docs: README quickstart and docs/adoption.md explain preview/apply, backups,
+  ownership, manual gate/instruction reconciliation, machine-local paths, trust
+  and reload. Architecture map updated. No statechart/model changes or provider
+  requests. Original acceptance history remains unchanged; no new QA pass flag.
+Next: Preview the intended existing project, resolve conflicts, explicitly apply,
+  reconcile its actual init.sh checks and run its baseline, then start/reload Pi.
+  This installs files, not a certificate that every inherited extension agrees.
+
+## 2026-11-10 Public GitHub source preparation — docs, CI and publication boundaries
+Request: Operator asked to clean/document Solo-SOTA for public GitHub sharing,
+  following discussion of a separate outer evaluator. No publication was requested
+  as a side effect; no remote, user commit, push or npm release was performed.
+Changed: Reworked README into a public landing page with requirements, new/existing
+  project quickstarts, workflow, boundaries and navigation. Moved detailed setup,
+  runtime/evidence and checker contracts into docs/setup, runtime and checks.
+  Added CONTRIBUTING, SECURITY, CHANGELOG, publication checklist and a clearly
+  design-only outer-evaluation proposal. Preserved advanced contracts, historical
+  bootstrap acceptance and append-only handoffs; no evaluation CLI/results invented.
+CI/hygiene: Added Node 24 Ubuntu/Windows verification workflow, full ./init.sh,
+  locked npm install, Bash, timeout, read-only contents, no persisted credentials
+  or secret grants. Official checkout/setup-node v6 refs were resolved from their
+  public remotes and pinned to full SHAs. Added PR checklist and ignore rules for
+  local env/Pi configuration, backups and generated artifacts. No runtime guard,
+  test, architecture sensor or Quint invariant was weakened.
+Licensing: Did not invent copyright ownership or choose a grant for the operator.
+  Package and root lock metadata explicitly say UNLICENSED; package stays private.
+  README/contributor/release docs explain that license selection and actual LICENSE
+  text remain maintainer decisions before advertising licensed open source.
+Testing: Baseline 130/130 green. Four public-distribution regressions failed first,
+  then passed: local Markdown links/privacy-safe examples, explicit licensing,
+  CI pins/permissions/full cross-platform gate, and effective Git ignore rules.
+  Full local gate reached 134/134, architecture lint 39 files plus all existing
+  symmetry/TODO/Quint checks. A separate 77-file clean source copy with fresh Git
+  metadata and npm ci passed the same 134-test full baseline; temporary copy removed.
+Privacy/review: Replaced personal Windows path example with generic paths. Scoped
+  working-tree and corrected full-history credential/home-path pattern scans found
+  no matches, not a comprehensive secret audit. No histories were rewritten.
+  Public docs require a trusted full-history scanner/review before publication.
+Dependency finding: npm audit returned nonzero with four affected package entries
+  beneath pinned Pi 1.0.0: brace-expansion/undici high; minimatch/Pi aggregate moderate.
+  Recorded sample public advisories and unassessed reachability in SECURITY plus
+  roadmap/changelog/release checklist. npm proposed SDK 1.5.2 for part of remediation;
+  no forced upgrade, dependency override, runtime install or compatibility claim made.
+  Functional tests passing is explicitly not a clean dependency-security verdict.
+Next: Maintainer chooses license/owner/remote and establishes private vulnerability
+  reporting. Assess/remediate dependency findings with a separately tested SDK/Pi
+  compatibility update before a general release. Review/commit intended changes,
+  then publish explicitly and verify actual hosted CI. Deep proof not run and
+  hosted workflow not executed here. Deferred hardening is not silently resumed.
+
+## 2026-11-10 MIT license, audited dependency upgrade and canonical repository
+Request: Operator chose MIT, approved upgrading audited dependencies and supplied
+  https://github.com/twfarland/solo-sota as the already-created repository.
+Changed: Added standard MIT LICENSE (2026 twfarland and contributors), MIT package/
+  lock metadata, canonical repository/homepage/issues links and matching docs.
+  Configured local origin to https://github.com/twfarland/solo-sota.git. No source
+  commit/push, npm publication, global Pi install/update or trust change performed.
+Notices: Fixed install manifest now copies LICENSE to core/SOLO-SOTA-LICENSE, so
+  exact installs, creation and adoption retain the harness notice without replacing
+  an application's own license. Real CLI tests verify both preservation and byte-
+  exact notice copying. Project-generated README documents the scope of that notice.
+  Existing license/manifest regressions failed first, then focused 13/13 passed.
+Dependencies: Upgraded the exact SDK pin 1.0.0 -> 1.5.2 with a normal npm install
+  and refreshed lockfile; no --force, overrides or audit suppression. All four
+  prior affected package entries are resolved: independent npm audit --json reports
+  zero info/low/moderate/high/critical findings. Other direct dependency pins remain.
+  Reviewed the upgraded SDK/extensions/CLI docs and examples; the original full
+  integration assertions pass unchanged against real 1.5.2, with no model calls.
+CI: Added npm audit --audit-level=low to the existing least-privilege matrix. Its
+  regression failed first, then passed after adding the step. The local functional
+  gate stays separate from the online advisory service; zero findings is a point-
+  in-time result, not a security or reachability certificate. Known HARN gaps remain.
+Docs: Updated current SDK compatibility, resolved-audit status, MIT rights/notices,
+  canonical repo and publication checklist. Historical ledger/acceptance unchanged.
+  Corrected current CLI guidance: Pi 1.5.2 has --no-mcp, whereas --no-extensions
+  still isolates all discovered/built-in extensions. Earlier Pi 1.0 facts remain
+  historical. SDK upgrade does not upgrade the operator's globally installed CLI.
+Gates: ./init.sh green with 134/134 tests, typecheck, architecture lint 39 files,
+  symmetry/TODO diff and existing Quint shallow scenarios/safety/teeth. Clean
+  source copy with fresh Git metadata and npm ci also passed its advisory audit
+  (zero findings) and the same full 134-test gate. Temporary checkout removed.
+  No test/sensor/invariant weakened; no statechart change or deep proof claimed.
+Next: Review/commit the intended worktree and push only on explicit approval, then
+  inspect actual GitHub CI. Enable private reporting/branch protections in GitHub.
+  Align the separately installed Pi CLI with 1.5.2 before relying on that runtime;
+  this change validated project dependencies, not a global executable upgrade.
+
+## 2026-11-10 Approved initial GitHub publication
+Request: Operator explicitly approved committing and pushing the prepared source.
+Preflight: Confirmed canonical origin and public repository ownership; remote has
+  no branches. Local branch master will become main before the first push. Existing
+  completed bootstrap acceptance/history and all prepared work are included; no
+  force push, history rewrite, tag, npm publication or global Pi change intended.
+Checks: Fresh local ./init.sh green (134/134 tests plus typecheck, architecture,
+  context/TODO and Quint shallow gates), npm audit zero findings, diff whitespace
+  clean. Anti-entropy review found no new blocking issue in this publication step.
+  Gitleaks v8.30.1 official Windows release was downloaded into a temporary directory
+  and checked against the release API SHA-256 digest before execution. Full existing
+  Git history (2 commits) and the 78-file intended source export both reported no
+  leaks. Reports were redacted; temporary scanner/export removed. This is bounded
+  scanner evidence, not a guarantee that all possible secrets are absent.
+Next: Commit the prepared source on main, push main to canonical origin without
+  forcing, then inspect actual GitHub workflow results. This entry precedes that
+  commit/push; their outcome is reported separately to avoid recording success
+  before it occurs. Private reporting and branch protection remain owner actions.

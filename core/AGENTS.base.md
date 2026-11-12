@@ -8,7 +8,7 @@ Read `ARCHITECTURE.md` for the bounded-context map and `spec/README.md` for the 
 - **Scoped Module Test:** `<STACK_SCOPED_TEST_CMD>`
 - **Quint Shallow Check (Fast Simulation):** `bash ./spec/scripts/check.sh`
 - **Quint Full Proof (Pre-Release Model Check):** `bash ./spec/scripts/prove.sh`
-- **Parallel Agent Isolation:** Concurrent agent runs MUST isolate test output directories (`AGENT_ID` / gradle init script / custom test output path) so parallel shifts never clobber test reports.
+- **Parallel Agent Isolation:** Concurrent agent runs MUST isolate test output directories (`AGENT_ID` and a per-agent test output path) so parallel shifts never clobber test reports.
 
 ## Before You Finish Any Change
 1. The build, unit/contract tests, and `ArchitectureTest` pass. **Never weaken `ArchitectureTest` or `feature_list.json` to make a change fit. Change the design.**

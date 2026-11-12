@@ -1,0 +1,6 @@
+import { expect, test } from "vitest";
+
+test("Node meets the harness native TypeScript runtime requirement", () => {
+  const [major = 0, minor = 0] = process.versions.node.split(".").map(Number);
+  expect(major > 23 || (major === 23 && minor >= 6)).toBe(true);
+});

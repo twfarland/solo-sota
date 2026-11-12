@@ -30,4 +30,4 @@ Scans imports and reports, each with a `REMEDIATION:` line:
 Tests (`*.test.*`, `*Test.*`, `*Contract.*`) and `*Vertical` composition roots are exempt from the domain rules.
 
 ## Parallel Agent Isolation
-Write test reports to `.tmp/test-$AGENT_ID.json` and run each agent in its own git worktree; never share `coverage/` between agents.
+Write test reports to `.tmp/test-$AGENT_ID.json` and run agents in separate worktrees; never share `coverage/` between agents.

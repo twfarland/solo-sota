@@ -8,7 +8,7 @@
       "Verify overlays/kotlin-gradle/init-isolated-tests.gradle.kts redirects test output directories per agentId",
       "Verify overlays/ts-node/lint-architecture.mjs emits remediation instructions when a downstream layer is imported by an upstream layer"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-002",
@@ -20,7 +20,7 @@
       "Verify mocking library imports (mockk, mockito, jest.mock, vi.mock) are rejected with instructions to use InMemory* fakes and *Contract tests",
       "Verify feature_list.json edit guard blocks any mutation outside the 'passes' boolean field"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-003",
@@ -30,7 +30,7 @@
       "Run 'bash ./spec/scripts/check.sh' and verify harness_lifecycle.qnt passes quint typecheck, quint test (happyPathTest, twoStrikeHaltTest), and 200-sample quint run simulation",
       "Verify inv_no_unverified_pass and inv_strike_cap_enforced hold and inv_teeth_can_reach_pass witness is reachable"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-004",
@@ -40,7 +40,7 @@
       "Run 'bash ./init.sh' and confirm TypeScript typechecking, node --test suite, architecture linter, and Quint check.sh all exit 0",
       "Load extensions in Pi via 'pi --no-mcp -e ./extensions/solo-sota-harness.ts -e ./extensions/plan-quint-qa-modes.ts -e ./extensions/self-ratchet.ts' and verify status bar shows Solo-SOTA status"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-005",
@@ -50,7 +50,7 @@
       "Run 'node ./bin/apply-harness.mjs --stack kotlin-gradle --target /tmp/test-kt-repo' in a clean temp directory",
       "Verify AGENTS.md, init.sh, spec/scripts/{check,prove}.sh, and Gradle parallel test isolation script are installed cleanly"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-006",
@@ -60,7 +60,7 @@
       "Verify the symmetry checker inspects vertical bounded context folders and flags missing *Contract tests when an outbound *Ports interface + adapter exist",
       "Verify error messages instruct the agent on the exact missing sibling file shape"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "BOOT-007",
@@ -70,6 +70,6 @@
       "Run '/ratchet Block new TODO comments unless formatted as TODO(owner): reason' inside Pi",
       "Verify Pi adds the pure rule to src/rules/guardrail-rules.ts, adds a unit test in guardrail-rules.test.ts, passes './init.sh', and updates feature_list.json via /qa"
     ],
-    "passes": false
+    "passes": true
   }
 ]
